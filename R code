@@ -1,0 +1,113 @@
+#Simulating normal distributions
+set.seed(123)
+X1 <- rnorm(n = 100, mean = 2, sd = 3)
+X2 <- rnorm(n = 100, mean = 8, sd = 1)
+mean(X1 + X2)
+var(X1 + X2)
+#setting the seed for consistent simulation
+set.seed(111)
+X1 <- rnorm(n = 10000, mean = 2, sd = 3)
+X2 <- rnorm(n = 10000, mean = 8, sd = 1)
+mean(X1 + X2)
+var(X1 + X2)
+#a Q-Q plot of X1+X2 to show that linear combinations of normal distibutions is also normal
+par(mfrow = c(1, 2))
+qqnorm(X1 + X2)
+#plotting a histogram to see the rough density function
+hist(X1 + X2, breaks = "FD", freq = F)
+#the curve makes this clearer
+curve(dnorm(x, mean = 10, sd = sqrt(10)), 
+      col = "red", lwd = 2, add = TRUE)
+
+
+#PART 2
+#Lets simulate multivariate normal data 
+mu <- c(0, 0)
+Sigma <- c(5, 4, 4, 5)
+#this is our mean and covariance matrix
+dim(Sigma) <- c(2, 2)
+#turns sigma into a matrix 
+#view the matrices
+mu
+Sigma
+#alternatively
+Sigma <- matrix(c(5, 4, 4, 5), nrow = 2, ncol = 2, byrow = TRUE)
+Sigma
+
+#again setting seed to remain consistent
+set.seed(456)
+library("MASS")
+Xsim <- mvrnorm(n = 1, mu = mu, Sigma = Sigma)
+Xsim
+
+Xsim <- mvrnorm(n = 1000, mu = mu, Sigma = Sigma)
+View(Xsim)
+#each row is a different observation
+#each column a different variable there are 2 in this simulation
+#we can check that each variable follows a normal distribution in the following way
+qqnorm(Xsim[,1]) #takes the 1st covariate and plots a q-q plot
+#repeat for 2
+
+#We can calculate the mahalanobis distance 
+D <- function(X, mu, Sigma){
+  
+  sqrt( t(X - mu) %*% solve(Sigma) %*% (X - mu) )
+  
+} 
+#Lets look at the mahalanobis distance of the first simulated point 
+D(X = Xsim[1, ], mu = mu, Sigma = Sigma)
+
+#We can calculate all the distances using a loop
+# An empty vector in which we will store the distances:
+distances <- c()   
+# Sample size:
+n <- nrow(Xsim)   
+# Distance calculations:
+
+for(i in 1:n){
+  
+  distances[i] <- D(X = Xsim[i, ], mu = mu, Sigma = Sigma)   
+  
+}
+#the square of the mahalanobis distance follows a chi squared distribution with p degrees of freedom
+#Using this we can see what percentage of points are less than the chi squared distribution evaluated for any alpha
+p = ncol(Xsim) #counts the number of covariates
+
+q = qchisq(0.95, df = p) #95% quantile of chi squared
+
+s <- ifelse(distances^2 < q, 1, 0) #returns 1 in less than and 0 if greater
+#we expect this value to be 1-alpha
+sum(s)/n
+
+
+par(mar = c(4, 4, 1, 1))
+
+q = qchisq(0.5, df = p)
+
+colour <- ifelse(distances^2 < q, "blue", "red")
+#this gives the elliptical cloud of points one expects fron a multivariate distribution
+plot(Xsim, col = colour, pch = 16, cex = 0.6)
+
+sum(colour == "blue")/n
+#the output gives us the probability that any points x lie in the region around the mean.
+# in this case around 50% of points lie in the region
+
+hist(distances^2, 
+     freq = FALSE, 
+     xlab = expression(d[i]^2), 
+     breaks = "FD")
+#this histogram should have higher density closer to the mean (when the distance is small)
+curve(dchisq(x, df = p), add = TRUE, col = "blue", lwd = 2)
+#the final line draws a curve of the chi squared distribution density function with p degrees of freedom
+#Our data seems to fit this curve as we would expect
+
+#We can plot the distances against quantiles to see if our assumption of multivariate normality is correct
+dsquared <- sort(distances^2)
+n <- nrow(Xsim)
+quantiles <- qchisq((1:n)/(n + 1), df = p) #
+
+plot(quantiles, dsquared, main = "Q-Q plot")
+#an easier way of doing this is by using a cqplot (it does the same thing)
+library("heplots")
+par(mfrow = c(1, 1))
+cqplot(Xsim)
